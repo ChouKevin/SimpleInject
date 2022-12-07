@@ -18,7 +18,7 @@ import com.example.common.annotation.Qualifier;
 
 public class FieldMeta {
     private final Field field;
-    private TypeMeta type;
+    private TypeInfo type;
     private boolean hasQualifier;
 
     public static List<FieldMeta> build(Class<?> clazz) {
@@ -39,12 +39,19 @@ public class FieldMeta {
     private void init() {
         this.field.setAccessible(true);
         this.hasQualifier = this.field.isAnnotationPresent(Qualifier.class);
-        this.type = new TypeMeta(field.getType());
+        this.type = TypeInfo.forField(field);
+        this.checkNotImplemented();
+    }
+
+    private void checkNotImplemented() {
+        if (this.type.isArray() || this.type.isGenericArray() || this.type.isGenericValue()) {
+            throw new NotImplementedException(String.format("not support to inject some type, happend in %s field", this.field.getDeclaringClass(), this.field.getName()));
+        }
     }
 
     public void inject(Object obj, Map<Class<?>, Set<ClassMeta>> classTree, Context ctx)
             throws IllegalAccessException {
-        if (this.type.isCollection()) {
+        if (this.type.isGeneric() && Collection.class.isAssignableFrom(this.type.resolve())) {
             this.injectWithMultiObjects(obj, classTree, ctx);
             return;
         }
